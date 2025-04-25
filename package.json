@@ -1,7 +1,7 @@
 {
-    "name": "tensorflowjs-tuts",
+    "name": "tensorflowjs-experiments",
     "version": "0.1.0",
-    "description": "A repo to learn tensorflowjs",
+    "description": "A repo to learn Tensorflowjs",
     "source": "src/index.html",
     "scripts": {
         "start": "rm -rf .parcel-cache && parcel src/*.html --public-url / --open",
