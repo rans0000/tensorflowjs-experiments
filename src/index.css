@@ -4,6 +4,11 @@
     --font-sans: InterVariable, sans-serif;
 }
 
+html,
+body {
+    margin: 0;
+}
+
 .link {
     @apply underline;
     @apply decoration-gray-400;
