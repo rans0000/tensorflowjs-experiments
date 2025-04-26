@@ -30,7 +30,7 @@
         "@tensorflow/tfjs": "^4.22.0",
         "dat.gui": "^0.7.9",
         "gh-pages": "^6.1.1",
-        "p5": "^2.0.1",
+        "p5": "^1.11.5",
         "tailwindcss": "^4.1.4"
     },
     "author": "rans0000@gmail.com",
