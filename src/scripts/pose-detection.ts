@@ -9,6 +9,7 @@ const CAPTURE_SIZE = 32 * 10;
 const TARGET_SIZE = 192;
 let mediaURL = '';
 let media: P5.Image;
+let movenet: tf.GraphModel<string | tf.io.IOHandler> | null = null;
 
 const sketch = (p5: P5) => {
     p5.setup = async () => {
@@ -24,8 +25,8 @@ const sketch = (p5: P5) => {
     };
 
     p5.draw = async () => {
-        if (isImageMode && media) {
-            p5.image(media, 0, 0);
+        if (isImageMode && media && movenet) {
+            prepareUploadedImage(p5, media);
             p5.background(0);
         }
         if (!isImageMode) {
@@ -38,6 +39,34 @@ const sketch = (p5: P5) => {
 
     function init(p5: P5) {
         setupEventListeners(p5);
+    }
+
+    async function prepareUploadedImage(p5: P5, img: P5.Image) {
+        // manipulate the uploaded image
+        await img.loadPixels();
+        const imgData = {
+            data: new Uint8Array(img.pixels),
+            width: img.width,
+            height: img.height
+        };
+        const imageTensor = await tf.browser.fromPixels(imgData);
+
+        // put the alpha channel back
+        const tempT = tf.fill([img.height, img.width, 1], 255, 'int32');
+        const rgbaT = tf.concat([imageTensor, tempT], 2);
+        const pixelT = rgbaT.reshape([img.height * img.width * 4]);
+        // create an array so image can be iterated over
+        const arr = (await pixelT.array()) as number[];
+        const preview = p5.createImage(img.width, img.height);
+        await preview.loadPixels();
+        for (let i = 0; i < arr.length; i++) {
+            preview.pixels[i] = arr[i];
+        }
+        await preview.updatePixels();
+        // draw the image to fit within the canvas bounds
+        const [rWidth, rHeight] = img.width > img.height ? [CAPTURE_SIZE, 0] : [0, CAPTURE_SIZE];
+        preview.resize(rWidth, rHeight);
+        p5.image(preview, 0, 0);
     }
 
     function setupEventListeners(p5: P5) {
@@ -85,15 +114,10 @@ const sketch = (p5: P5) => {
             loaderEl.classList.replace('hidden', 'flex');
             console.log('loading model started...');
             const modelPath = 'https://www.kaggle.com/models/google/movenet/tfJs/singlepose-lightning/4';
-            const movenet = await tf.loadGraphModel(modelPath, { fromTFHub: true });
+            movenet = await tf.loadGraphModel(modelPath, { fromTFHub: true });
             console.log('loading model done...');
-
-            let tempTensor = tf.zeros([1, 192, 192, 3], 'int32');
-            let tensorOut = movenet.predict(tempTensor);
-            let result = tensorOut.toString();
-            console.log(result);
         } catch (error) {
-            console.log('loading model failed...');
+            console.log('something went wrong...', error);
         } finally {
             loaderEl.classList.replace('flex', 'hidden');
         }
