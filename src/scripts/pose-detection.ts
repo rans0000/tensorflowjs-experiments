@@ -111,10 +111,19 @@ const sketch = (p5: P5) => {
     async function loadPoseModel() {
         const loaderEl = document.getElementById('loader') as HTMLElement;
         try {
+            const modelURL = 'https://www.kaggle.com/models/google/movenet/tfJs/singlepose-lightning/4';
+            const localURL = 'indexeddb://models/movenet-singlepose-lightning';
+
             loaderEl.classList.replace('hidden', 'flex');
             console.log('loading model started...');
-            const modelPath = 'https://www.kaggle.com/models/google/movenet/tfJs/singlepose-lightning/4';
-            movenet = await tf.loadGraphModel(modelPath, { fromTFHub: true });
+            const isModelLocallyAvailable = (await tf.io.listModels()).hasOwnProperty(localURL);
+
+            if (isModelLocallyAvailable) {
+                movenet = await tf.loadGraphModel(localURL);
+            } else {
+                movenet = await tf.loadGraphModel(modelURL, { fromTFHub: true });
+                await movenet.save(localURL);
+            }
             console.log('loading model done...');
         } catch (error) {
             console.log('something went wrong...', error);
