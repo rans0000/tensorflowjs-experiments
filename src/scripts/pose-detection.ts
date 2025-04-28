@@ -1,15 +1,18 @@
-import P5 from 'p5';
+import * as cocoSSD from '@tensorflow-models/coco-ssd';
 import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs-backend-cpu';
 import '@tensorflow/tfjs-backend-webgl';
-import * as poseDetection from '@tensorflow-models/pose-detection';
+import P5 from 'p5';
 
 type TMode = boolean;
 let isImageMode: TMode = true;
 const CAPTURE_SIZE = 32 * 10;
 const TARGET_SIZE = 192;
 let mediaURL = '';
-let media: P5.Image;
-let movenet: tf.GraphModel<string | tf.io.IOHandler> | null = null;
+let movenetModel: tf.GraphModel<string | tf.io.IOHandler> | null = null;
+let objectDetectionModel: cocoSSD.ObjectDetection | null = null;
+
+const loaderEl = document.getElementById('loader') as HTMLElement;
 
 const sketch = (p5: P5) => {
     p5.setup = async () => {
@@ -22,13 +25,13 @@ const sketch = (p5: P5) => {
 
         init(p5);
         await loadPoseModel();
+        await loadObjectDetectionModel();
     };
 
     p5.draw = async () => {
-        if (isImageMode && media && movenet) {
-            prepareUploadedImage(p5, media);
-            p5.background(0);
-        }
+        // if (isImageMode  && movenetModel && objectDetectionModel) {
+        //     p5.background(0);
+        // }
         if (!isImageMode) {
             p5.background(255);
         }
@@ -41,64 +44,131 @@ const sketch = (p5: P5) => {
         setupEventListeners(p5);
     }
 
-    async function prepareUploadedImage(p5: P5, img: P5.Image) {
-        // manipulate the uploaded image
-        await img.loadPixels();
-        const imgData = {
-            data: new Uint8Array(img.pixels),
-            width: img.width,
-            height: img.height
-        };
-        const imageTensor = await tf.browser.fromPixels(imgData);
+    async function extractHumanFromImage(p5: P5, img: HTMLImageElement): Promise<P5.Image> {
+        return new Promise(async (resolve, reject) => {
+            if (!objectDetectionModel) return reject(null);
 
-        // put the alpha channel back
-        const tempT = tf.fill([img.height, img.width, 1], 255, 'int32');
-        const rgbaT = tf.concat([imageTensor, tempT], 2);
-        const pixelT = rgbaT.reshape([img.height * img.width * 4]);
-        // create an array so image can be iterated over
-        const arr = (await pixelT.array()) as number[];
-        const preview = p5.createImage(img.width, img.height);
-        await preview.loadPixels();
-        for (let i = 0; i < arr.length; i++) {
-            preview.pixels[i] = arr[i];
-        }
-        await preview.updatePixels();
-        // draw the image to fit within the canvas bounds
-        const [rWidth, rHeight] = img.width > img.height ? [CAPTURE_SIZE, 0] : [0, CAPTURE_SIZE];
-        preview.resize(rWidth, rHeight);
-        p5.image(preview, 0, 0);
+            // load prediction and get the bounds for the human
+            const predictions = await objectDetectionModel.detect(img);
+            const people = predictions.filter((item) => item.class === 'person' && item.score > 0.7);
+            if (people.length < 1) return reject(null);
+            const person = people[0];
+
+            p5.loadImage(mediaURL, (currImg) => {
+                // once we have a human, create a rectangle bound
+
+                /**@todo: decide to crop & padd */
+                const [ax, ay, w, h] = person.bbox;
+
+                const max = w > h ? w : h;
+                const newX = ax + w / 2 - max / 2;
+                const newY = ay + h / 2 - max / 2;
+
+                const boundingImg = p5.createImage(TARGET_SIZE, TARGET_SIZE);
+                boundingImg.copy(currImg, newX, newY, max, max, 0, 0, TARGET_SIZE, TARGET_SIZE);
+                p5.image(boundingImg, 0, 0);
+                return resolve(boundingImg);
+            });
+        });
     }
+
+    async function detectPose(img: P5.Image): Promise<[number[][][][], number, number]> {
+        return new Promise(async (resolve, reject) => {
+            if (!movenetModel) return reject(null);
+
+            await img.loadPixels();
+            const imgData = new ImageData(new Uint8ClampedArray(img.pixels), img.width, img.height, { colorSpace: 'srgb' });
+            const imageTensor = await tf.browser.fromPixels(imgData);
+
+            const poses = (await movenetModel.predict(tf.expandDims(imageTensor))) as tf.Tensor;
+            const points = (await poses.array()) as number[][][][];
+            return resolve([points, img.width, img.height]);
+        });
+    }
+
+    function drawPosePoints(points: number[][][][], width: number, height: number) {
+        const keyPoints = points[0][0];
+
+        for (const landmark of keyPoints) {
+            p5.noStroke();
+            p5.fill(0, 255, 0);
+            p5.circle(landmark[1] * height, landmark[0] * width, 5);
+        }
+        p5.redraw();
+    }
+
+    // async function prepareUploadedImage(p5: P5, img: P5.Image) {
+    //     // manipulate the uploaded image
+    //     await img.loadPixels();
+    //     const imgData = {
+    //         data: new Uint8Array(img.pixels),
+    //         width: img.width,
+    //         height: img.height
+    //     };
+    //     const imageTensor = await tf.browser.fromPixels(imgData);
+
+    //     // put the alpha channel back
+    //     const tempT = tf.fill([img.height, img.width, 1], 255, 'int32');
+    //     const rgbaT = tf.concat([imageTensor, tempT], 2);
+    //     const pixelT = rgbaT.reshape([img.height * img.width * 4]);
+    //     // create an array so image can be iterated over
+    //     const arr = (await pixelT.array()) as number[];
+    //     const preview = p5.createImage(img.width, img.height);
+    //     await preview.loadPixels();
+    //     for (let i = 0; i < arr.length; i++) {
+    //         preview.pixels[i] = arr[i];
+    //     }
+    //     await preview.updatePixels();
+    //     // draw the image to fit within the canvas bounds
+    //     const [rWidth, rHeight] = img.width > img.height ? [CAPTURE_SIZE, 0] : [0, CAPTURE_SIZE];
+    //     preview.resize(rWidth, rHeight);
+    //     p5.image(preview, 0, 0);
+    // }
 
     function setupEventListeners(p5: P5) {
         const btnCamera = document.getElementById('btn-camera') as HTMLButtonElement;
         const btnFileUpload = document.getElementById('file-upload') as HTMLElement;
         const infoLabel = document.getElementById('file-info-label') as HTMLElement;
 
-        btnFileUpload.addEventListener('change', (e: InputEvent) => {
-            const target = e.target as HTMLInputElement;
-            if (!target.files || target.files.length < 1) return;
-
-            toggleMode(true);
-            if (mediaURL) URL.revokeObjectURL(mediaURL);
-            const file = target.files[0];
-            mediaURL = URL.createObjectURL(file);
-            infoLabel.textContent = file.name;
-            p5.loadImage(mediaURL, (img: P5.Image) => {
-                media = img;
-                p5.redraw();
-            });
-        });
+        btnFileUpload.addEventListener('change', handleileUpload);
 
         btnCamera.addEventListener('click', (e: MouseEvent) => {
             e.preventDefault();
             toggleMode(false);
         });
 
+        function handleileUpload(e: InputEvent) {
+            const target = e.target as HTMLInputElement;
+            if (!target.files || target.files.length < 1) return;
+
+            if (mediaURL) URL.revokeObjectURL(mediaURL);
+
+            const file = target.files[0];
+            if (!file.type.startsWith('image/')) {
+                throw 'Only images can be uploaded!!';
+            }
+            toggleMode(true);
+
+            mediaURL = URL.createObjectURL(file);
+            infoLabel.textContent = file.name;
+            const newImg = new Image();
+            newImg.onload = async function () {
+                try {
+                    const boundImg = await extractHumanFromImage(p5, this as HTMLImageElement);
+                    const [poses, width, height] = await detectPose(boundImg);
+                    drawPosePoints(poses, width, height);
+                } catch (error) {
+                    console.log('error processing...', error);
+                }
+            };
+            newImg.src = mediaURL;
+        }
+
         function toggleMode(_mode: boolean | undefined) {
             isImageMode = _mode !== undefined ? _mode : !_mode;
             if (isImageMode) {
                 // in isImageMode to image
-                p5.background('black');
+                p5.background('white');
                 p5.noLoop();
                 return;
             }
@@ -109,24 +179,36 @@ const sketch = (p5: P5) => {
     }
 
     async function loadPoseModel() {
-        const loaderEl = document.getElementById('loader') as HTMLElement;
         try {
             const modelURL = 'https://www.kaggle.com/models/google/movenet/tfJs/singlepose-lightning/4';
             const localURL = 'indexeddb://models/movenet-singlepose-lightning';
 
             loaderEl.classList.replace('hidden', 'flex');
-            console.log('loading model started...');
+            console.log('loading movenet model started...');
             const isModelLocallyAvailable = (await tf.io.listModels()).hasOwnProperty(localURL);
 
             if (isModelLocallyAvailable) {
-                movenet = await tf.loadGraphModel(localURL);
+                movenetModel = await tf.loadGraphModel(localURL);
             } else {
-                movenet = await tf.loadGraphModel(modelURL, { fromTFHub: true });
-                await movenet.save(localURL);
+                movenetModel = await tf.loadGraphModel(modelURL, { fromTFHub: true });
+                await movenetModel.save(localURL);
             }
-            console.log('loading model done...');
+            console.log('loading movenet model done...');
         } catch (error) {
-            console.log('something went wrong...', error);
+            console.log('something went wrong while loading the pose model...', error);
+        } finally {
+            loaderEl.classList.replace('flex', 'hidden');
+        }
+    }
+
+    async function loadObjectDetectionModel() {
+        console.log('loading cocossd model started');
+        try {
+            loaderEl.classList.replace('hidden', 'flex');
+            objectDetectionModel = await cocoSSD.load();
+            console.log('loading cocossd model done');
+        } catch (error) {
+            console.log('something went wrong while loading object detection model ...', error);
         } finally {
             loaderEl.classList.replace('flex', 'hidden');
         }
