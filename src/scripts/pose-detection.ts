@@ -152,8 +152,13 @@ const sketch = (p5: P5) => {
             mediaURL = URL.createObjectURL(file);
             infoLabel.textContent = file.name;
             const newImg = new Image();
-            newImg.onload = async function () {
+            newImg.onload = async function (e: Event) {
                 try {
+                    const self = e.target as HTMLImageElement;
+                    if (self.width < TARGET_SIZE || self.height < TARGET_SIZE) {
+                        alert('Please provide an image with atleas 192x192px size');
+                        throw 'image size error!';
+                    }
                     const boundImg = await extractHumanFromImage(p5, this as HTMLImageElement);
                     const [poses, width, height] = await detectPose(boundImg);
                     drawPosePoints(poses, width, height);
