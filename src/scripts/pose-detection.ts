@@ -11,6 +11,7 @@ const TARGET_SIZE = 192;
 let mediaURL = '';
 let movenetModel: tf.GraphModel<string | tf.io.IOHandler> | null = null;
 let objectDetectionModel: cocoSSD.ObjectDetection | null = null;
+let camera: P5.MediaElement | null = null;
 
 const loaderEl = document.getElementById('loader') as HTMLElement;
 
@@ -21,6 +22,7 @@ const sketch = (p5: P5) => {
         p5.background('black');
         p5.pixelDensity(1);
         p5.colorMode(p5.RGB);
+        p5.frameRate(10);
         p5.noLoop();
 
         init(p5);
@@ -33,7 +35,13 @@ const sketch = (p5: P5) => {
         //     p5.background(0);
         // }
         if (!isImageMode) {
-            p5.background(255);
+            try {
+                const boundImg = await extractImageFromCamera();
+                const [poses, width, height] = await detectPose(boundImg);
+                drawPosePoints(poses, width, height);
+            } catch (error) {
+                console.log('error processing...', error);
+            }
         }
     };
 
@@ -42,6 +50,18 @@ const sketch = (p5: P5) => {
 
     function init(p5: P5) {
         setupEventListeners(p5);
+    }
+
+    async function extractImageFromCamera(): Promise<P5.Image> {
+        return new Promise(async (resolve, reject) => {
+            if (!camera) return reject(null);
+
+            await camera.loadPixels();
+            const newImg = p5.createImage(TARGET_SIZE, TARGET_SIZE);
+            newImg.copy(camera, 0, 0, CAPTURE_SIZE, CAPTURE_SIZE, 0, 0, TARGET_SIZE, TARGET_SIZE);
+            p5.image(newImg, 0, 0);
+            return resolve(newImg);
+        });
     }
 
     async function extractHumanFromImage(p5: P5, img: HTMLImageElement): Promise<P5.Image> {
@@ -92,9 +112,8 @@ const sketch = (p5: P5) => {
         for (const landmark of keyPoints) {
             p5.noStroke();
             p5.fill(0, 255, 0);
-            p5.circle(landmark[1] * height, landmark[0] * width, 5);
+            landmark[2] > 0.5 && p5.circle(landmark[1] * height, landmark[0] * width, 5);
         }
-        p5.redraw();
     }
 
     // async function prepareUploadedImage(p5: P5, img: P5.Image) {
@@ -131,11 +150,28 @@ const sketch = (p5: P5) => {
         const infoLabel = document.getElementById('file-info-label') as HTMLElement;
 
         btnFileUpload.addEventListener('change', handleileUpload);
+        btnCamera.addEventListener('click', handleCameraCapture);
 
-        btnCamera.addEventListener('click', (e: MouseEvent) => {
+        function handleCameraCapture(e: MouseEvent) {
             e.preventDefault();
-            toggleMode(false);
-        });
+
+            if (!camera) {
+                const constraints = {
+                    video: {
+                        noiseSuppression: true,
+                        width: CAPTURE_SIZE,
+                        height: CAPTURE_SIZE
+                    },
+                    audio: false
+                };
+                camera = p5.createCapture(constraints, { flipped: true }, () => {
+                    toggleMode(false);
+                }) as P5.MediaElement;
+                camera.hide();
+            } else {
+                toggleMode(false);
+            }
+        }
 
         function handleileUpload(e: InputEvent) {
             const target = e.target as HTMLInputElement;
@@ -155,6 +191,7 @@ const sketch = (p5: P5) => {
             newImg.onload = async function (e: Event) {
                 try {
                     const self = e.target as HTMLImageElement;
+                    target.value = '';
                     if (self.width < TARGET_SIZE || self.height < TARGET_SIZE) {
                         alert('Please provide an image with atleas 192x192px size');
                         throw 'image size error!';
