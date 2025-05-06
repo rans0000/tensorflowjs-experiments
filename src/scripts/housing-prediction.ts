@@ -3,8 +3,10 @@ import * as tf from '@tensorflow/tfjs';
 
 async function execute() {
     const tableBody = document.getElementById('table-body') as HTMLBodyElement;
+    const predictionForm = document.getElementById('prediction-form') as HTMLFormElement;
     const inputTensor = tf.tensor2d(TRAINING_DATA.inputs);
     const outputTensor = tf.tensor1d(TRAINING_DATA.outputs);
+    predictionForm.addEventListener('submit', onSubmit);
 
     // render the table
     buildTable(TRAINING_DATA.inputs, TRAINING_DATA.outputs, tableBody);
@@ -84,6 +86,14 @@ async function execute() {
             fragment.appendChild(row);
         }
         body.appendChild(fragment);
+    }
+
+    function onSubmit(e: SubmitEvent) {
+        e.preventDefault();
+        const formData = new FormData(predictionForm);
+        const area = parseFloat(formData.get('input-area') as string);
+        const rooms = parseFloat(formData.get('input-rooms') as string);
+        if (!area || !rooms) return;
     }
 }
 
