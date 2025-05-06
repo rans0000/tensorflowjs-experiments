@@ -8,13 +8,26 @@
         <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
         <link href="./index.css" type="text/css" rel="stylesheet" />
     </head>
-    <body class="overflow-hidden">
+    <body class="">
         <h1
             class="fixed w-full h-16 px-6 flex justify-between items-center bg-white font-bold text-2xl border-b border-gray-200"
         >
-            Realesate Prediction
+            Real-esate Prediction
         </h1>
-        <section id="app" class="pt-16"></section>
+        <section id="app" class="pt-16">
+            <div class="mx-4">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="p-2 text-right">Size (sqft)</th>
+                            <th class="p-2 text-right">Rooms</th>
+                            <th class="p-2 text-right">price</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+            </div>
+        </section>
         <article id="gui"></article>
         <script type="module" src="./scripts/housing-prediction.ts"></script>
     </body>
