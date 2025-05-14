@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Predictions from real-estate data | TensorflowJS</title>
+        <title>Predictions from real estate data | TensorflowJS</title>
         <meta name="description" content="Various predictions based on a provided dataset using TensorFlow.js" />
         <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
         <link href="./index.css" type="text/css" rel="stylesheet" />
@@ -12,39 +12,45 @@
         <h1
             class="fixed w-full h-16 px-6 flex justify-between items-center bg-white font-bold text-2xl border-b border-gray-200"
         >
-            Real-esate Prediction
+            Real Esate Prediction
         </h1>
         <section id="app" class="pt-16 h-svh flex flex-col overflow-y-hidden">
-            <form class="py-4 px-8" id="prediction-form">
-                <div class="max-w-sm mb-4">
-                    <label for="Email">
-                        <span class="text-sm font-medium text-gray-700">Area in sqft</span>
-                        <input
-                            type="number"
-                            id="input-area"
-                            name="input-area"
-                            min="1"
-                            class="h-8 px-2 mt-0.5 w-full rounded border border-gray-300 shadow-sm sm:text-sm"
-                        />
-                    </label>
-                    <label for="Email">
-                        <span class="text-sm font-medium text-gray-700">No of rooms</span>
-                        <input
-                            type="number"
-                            id="input-rooms"
-                            name="input-rooms"
-                            min="1"
-                            class="h-8 px-2 mt-0.5 w-full rounded border border-gray-300 shadow-sm sm:text-sm"
-                        />
-                    </label>
+            <div class="py-4 px-8 flex items-center gap-8">
+                <form class="" id="prediction-form">
+                    <div class="max-w-sm mb-4">
+                        <label for="Email">
+                            <span class="text-sm font-medium text-gray-700">Area in sqft</span>
+                            <input
+                                type="number"
+                                id="input-area"
+                                name="input-area"
+                                min="1"
+                                class="h-8 px-2 mt-0.5 w-full rounded border border-gray-300 shadow-sm sm:text-sm"
+                            />
+                        </label>
+                        <label for="Email">
+                            <span class="text-sm font-medium text-gray-700">No of rooms</span>
+                            <input
+                                type="number"
+                                id="input-rooms"
+                                name="input-rooms"
+                                min="1"
+                                class="h-8 px-2 mt-0.5 w-full rounded border border-gray-300 shadow-sm sm:text-sm"
+                            />
+                        </label>
+                    </div>
+                    <button
+                        class="cursor-pointer inline-block rounded-sm border border-indigo-600 bg-indigo-600 px-12 py-3 text-sm font-medium text-white hover:bg-transparent hover:text-indigo-600 focus:ring-3 focus:outline-hidden"
+                        type="submit"
+                    >
+                        Predict
+                    </button>
+                </form>
+                <div class="p-4 border border-gray-200 rounded-sm hidden" id="output-box">
+                    Price for 3 bedroom house of 15000 sqft would be around<br />
+                    <span class="font-bold">$23000.00</span>
                 </div>
-                <button
-                    class="cursor-pointer inline-block rounded-sm border border-indigo-600 bg-indigo-600 px-12 py-3 text-sm font-medium text-white hover:bg-transparent hover:text-indigo-600 focus:ring-3 focus:outline-hidden"
-                    type="submit"
-                >
-                    Predict
-                </button>
-            </form>
+            </div>
             <div class="mx-4 grow overflow-y-auto">
                 <table>
                     <thead>

@@ -4,6 +4,7 @@ import * as tf from '@tensorflow/tfjs';
 async function execute() {
     const tableBody = document.getElementById('table-body') as HTMLBodyElement;
     const predictionForm = document.getElementById('prediction-form') as HTMLFormElement;
+    const outputBox = document.getElementById('output-box') as HTMLDivElement;
     const inputTensor = tf.tensor2d(TRAINING_DATA.inputs);
     const outputTensor = tf.tensor1d(TRAINING_DATA.outputs);
     predictionForm.addEventListener('submit', onSubmit);
@@ -28,7 +29,7 @@ async function execute() {
     await train();
 
     async function train() {
-        const learningRate = 0.001;
+        const learningRate = 0.01;
 
         model.compile({
             optimizer: tf.train.sgd(learningRate),
@@ -52,7 +53,7 @@ async function execute() {
         );
     }
 
-    function normalize(tensor: tf.Tensor, _min?: number, _max?: number) {
+    function normalize(tensor: tf.Tensor, _min?: number | tf.Tensor, _max?: number | tf.Tensor) {
         const result = tf.tidy(() => {
             const min = _min || tf.min(tensor, 0);
             const max = _max || tf.max(tensor, 0);
@@ -66,9 +67,23 @@ async function execute() {
         return result;
     }
 
+    function evaluate(area: number, rooms: number) {
+        tf.tidy(function () {
+            let input = normalize(tf.tensor2d([[area, rooms]]), min, max);
+            let output = model.predict(input.normalizedTensor);
+            output instanceof tf.Tensor &&
+                output.array().then((val: number[][]) => {
+                    // display prediction
+                    outputBox.innerHTML = `Price for ${rooms} bedroom house of ${area} sqft would be around<br />
+                          <span class="font-bold">$${Math.round(val[0][0])}.00</span>`;
+                    outputBox.classList.remove('hidden');
+                });
+        });
+    }
+
     function buildTable(input: number[][], output: number[], body: HTMLBodyElement) {
-        // const node = new
         const fragment = document.createDocumentFragment();
+
         for (let i = 0; i < input.length; i++) {
             const row = document.createElement('tr');
             const areaCell = document.createElement('td');
@@ -94,6 +109,8 @@ async function execute() {
         const area = parseFloat(formData.get('input-area') as string);
         const rooms = parseFloat(formData.get('input-rooms') as string);
         if (!area || !rooms) return;
+
+        evaluate(area, rooms);
     }
 }
 
